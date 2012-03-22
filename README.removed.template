@@ -1,0 +1,13 @@
+This project has been migrated to git.
+You can now find it at:
+
+$new_git_url
+
+The svn sources have been removed but prior svn history is still available.
+In the rare cases you still need svn you can can specify the latest production
+revision with '-r $svn_rev_no'.
+
+svn checkout -r $svn_rev_no $svn_old_path
+
+Your TYPO3ServerTeam
+
