@@ -7,7 +7,6 @@ Created on 22.03.2012
 import argparse
 import shlex
 import json
-import sys
 import shutil
 from subprocess import check_call, check_output
 import tempfile
@@ -86,11 +85,11 @@ class Typo3GerritHelper():
             # start real work
         self.create_group()
         self.create_project()
-        self.create_permission_sync()
         self.update_project_config()
-        self.touch_daemonexportok()
-        self.update_repository_in_forge()
         self.cleanup_svn_repo()
+        self.update_repository_in_forge()
+        
+            # cleanup
         self.cleanup_tmpdir()
     
     def cleanup_tmpdir(self):
@@ -106,17 +105,10 @@ class Typo3GerritHelper():
         
     def create_group(self):
         '''
-        adding a proper group for the project into gerrit
+        adding a proper group for the project into gerrit including adding the proper forge_project_id
         '''
-        self.confirm_execute(self.ssh_cmd + ' gerrit create-group --owner Administrators ' + self.git_path)
- 
-    def touch_daemonexportok(self):
-        '''
-        touch the git-daemon-export-ok file to allow git browsing
-        '''
-        cmd = 'ssh -t srv104 sudo touch "/var/git/repositories/' + self.git_path + '.git/git-daemon-export-ok"'
-        #check_call(['ssh', '-t', 'srv104', 'sudo echo touch "/var/git/repositories/' + self.git_path + '.git/git-daemon-export-ok"'])
-        self.confirm_execute(cmd, call_only=True)
+        self.execute(self.ssh_cmd + ' gerrit create-group --owner Administrators ' + self.git_path)
+        self.execute(self.ssh_cmd + ' gerrit gsql -c \\\"update account_group_names set forge_project_id=\\\'' +  self.forge_identifier + '\\\' where name=\\\'' + self.git_path + '\\\' limit 1\\\"')
     
     def get_check_forge_identifier(self):
         '''
@@ -215,10 +207,10 @@ class Typo3GerritHelper():
     
     def create_project(self):
         self.execute(self.ssh_cmd + ' gerrit create-project --require-change-id ' + self.git_path)
-     
-    def create_permission_sync(self):   
-        self.execute(self.ssh_cmd + ' gerrit gsql -c \\\"update account_group_names set forge_project_id=\\\'' +  self.forge_identifier + '\\\' where name=\\\'' + self.git_path + '\\\' limit 1\\\"')
-        
+        #  touch the git-daemon-export-ok file to allow git browsing
+        cmd = 'ssh -t srv104 sudo touch "/var/git/repositories/' + self.git_path + '.git/git-daemon-export-ok"'
+        self.execute(cmd, call_only=True)
+    
     def execute(self, cmd, cwd=None, call_only=False):
         output = None
         args = shlex.split(cmd)
