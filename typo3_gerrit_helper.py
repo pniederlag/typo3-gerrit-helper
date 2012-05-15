@@ -8,7 +8,7 @@ import argparse
 import shlex
 import json
 import shutil
-from subprocess import check_call, check_output
+from subprocess import check_call, check_output, STDOUT
 import tempfile
 import re
 from ConfigParser import SafeConfigParser
@@ -107,7 +107,17 @@ class Typo3GerritHelper():
         '''
         adding a proper group for the project into gerrit including adding the proper forge_project_id
         '''
-        self.execute(self.ssh_cmd + ' gerrit create-group --owner Administrators ' + self.git_path)
+        output = self.execute(self.ssh_cmd + ' gerrit gsql --format JSON -c \\\"select * from account_group_names where name=\\\'' + self.git_path + '\\\'\\\"')
+        lines = output.splitlines()
+        sql_stat = json.loads(lines[-1]) # last line has stats
+        count = sql_stat['rowCount']
+        if count == 0:
+            print '# will create Group "' + self.git_path + '" in gerrit'
+            self.execute(self.ssh_cmd + ' gerrit create-group --owner Administrators ' + self.git_path)
+        elif count == 1:
+            print '# Group "' + self.git_path + '" is already known to gerrit'
+        else:
+            raise Exception('# querying gerrit for the group "' + self.git_path + '" failed for an unknown reason')
         self.execute(self.ssh_cmd + ' gerrit gsql -c \\\"update account_group_names set forge_project_id=\\\'' +  self.forge_identifier + '\\\' where name=\\\'' + self.git_path + '\\\' limit 1\\\"')
     
     def get_check_forge_identifier(self):
@@ -130,6 +140,7 @@ class Typo3GerritHelper():
             raise Exception(msg)
     
     def get_repository_in_forge(self):
+        old_svn_path = False
         query = 'select id, url from repositories where project_id=' + str(self.forge_db_id) + ''
         try:
             output = self.execute(
@@ -147,7 +158,9 @@ class Typo3GerritHelper():
             #db_id = False
             print 'no repository for "' + self.forge_identifier + '" found. creation of new repo in forge is not supported yet.'
         #print rep_id
-        if old_svn_path.endswith('/'):
+        if not old_svn_path:
+            return
+        elif old_svn_path.endswith('/'):
             self.old_svn_path = old_svn_path
         else:
             self.old_svn_path = old_svn_path + '/'
@@ -177,6 +190,7 @@ class Typo3GerritHelper():
         if not self.old_svn_path:
             print '#'
             print '# can\'t cleanup the svn as old_svn_path is not known. probabld update_set_repository in forge has not been run?'
+            return
         new_git_url = 'http://git.typo3.org/' + self.git_path + '.git'
         svn_info = self.execute('svn info ' + self.old_svn_path)
         regex = re.compile('(Revision: )([0-9]+)',re.UNICODE)
@@ -206,7 +220,14 @@ class Typo3GerritHelper():
           
     
     def create_project(self):
-        self.execute(self.ssh_cmd + ' gerrit create-project --require-change-id ' + self.git_path)
+        output = self.execute(self.ssh_cmd + ' gerrit ls-projects')
+        lines = output.splitlines()
+        try:
+            found = lines.index(self.git_path)
+            print '# project has already been created'
+        except (ValueError, LookupError):
+            print '# will create project now'
+            self.execute(self.ssh_cmd + ' gerrit create-project --require-change-id ' + self.git_path)
         #  touch the git-daemon-export-ok file to allow git browsing
         cmd = 'ssh -t srv104 sudo touch "/var/git/repositories/' + self.git_path + '.git/git-daemon-export-ok"'
         self.execute(cmd, call_only=True)
@@ -218,7 +239,7 @@ class Typo3GerritHelper():
         if call_only == True:
             check_call(args=args, cwd=cwd)
         else:
-            output = check_output(args=args, cwd=cwd)
+            output = check_output(args=args, cwd=cwd, stderr=STDOUT)
         if output and self.debug == 'True':
             for line in output.splitlines():
                 print line
@@ -273,9 +294,13 @@ class Typo3GerritHelper():
         groups_file.writelines(group_lines)
         groups_file.close()
         self.execute('git add project.config groups', cwd=self.tmp_dir)
-        self.execute('git commit -m "Default Permissions"', cwd=self.tmp_dir)
-        self.confirm_execute('git push origin meta/config:refs/meta/config', cwd=self.tmp_dir)
-
+        diff = self.execute('git diff meta/config origin/meta/config', cwd=self.tmp_dir)
+        if diff == '':
+            print '# permissions dont need an update'
+        else:
+            print '# updating permissions to default'
+            self.execute('git commit -m "Default Permissions"', cwd=self.tmp_dir)
+            self.confirm_execute('git push origin meta/config:refs/meta/config', cwd=self.tmp_dir)
  
 
 parser = argparse.ArgumentParser(
