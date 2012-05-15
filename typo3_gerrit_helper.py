@@ -141,6 +141,7 @@ class Typo3GerritHelper():
     
     def get_repository_in_forge(self):
         old_svn_path = False
+        rep_id = False
         query = 'select id, url from repositories where project_id=' + str(self.forge_db_id) + ''
         try:
             output = self.execute(
@@ -156,10 +157,15 @@ class Typo3GerritHelper():
             [rep_id, old_svn_path] = lines[1].split('\t')
         except Exception as ex:
             #db_id = False
-            print 'no repository for "' + self.forge_identifier + '" found. creation of new repo in forge is not supported yet.'
-        #print rep_id
-        if not old_svn_path:
+            print '# no repository for "' + self.forge_identifier + '" found. creation of new repo in forge is not supported yet.'
             return
+        # check wether we have any rep at all
+        if not old_svn_path or not rep_id:
+            print '# no attached repo found on forge'
+            return
+        # check wether we still have an svn rep
+        if not old_svn_path.startswith('https://svn'):
+            print '# attached repo "' +  old_svn_path + '" seems not to be svn, maybe already git?'
         elif old_svn_path.endswith('/'):
             self.old_svn_path = old_svn_path
         else:
@@ -167,7 +173,7 @@ class Typo3GerritHelper():
         self.forge_rep_id = rep_id
     
     def update_repository_in_forge(self):
-        if not self.old_svn_path or not self.forge_rep_id:
+        if not self.forge_rep_id:
             print '#'
             print '# can\'t update the repository in forge as it is unknown. probably get_repository in forge has not been run?'
             return
