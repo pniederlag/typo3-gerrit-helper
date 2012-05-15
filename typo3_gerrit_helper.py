@@ -8,7 +8,8 @@ import argparse
 import shlex
 import json
 import shutil
-from subprocess import check_call, check_output, STDOUT
+import sys
+from subprocess import check_call, check_output, CalledProcessError, STDOUT
 import tempfile
 import re
 from ConfigParser import SafeConfigParser
@@ -58,6 +59,8 @@ class Typo3GerritHelper():
         self.forge_db = parser.get('forge', 'db')
         self.forge_user = parser.get('forge', 'user')
         self.forge_pw = parser.get('forge', 'pw')
+        self.robot_user = parser.get('gerrit', 'robot_user')
+        
             # config
         parser.read('config.cfg')
         self.interactive = parser.getboolean('config', 'interactive')
@@ -86,8 +89,9 @@ class Typo3GerritHelper():
         self.create_group()
         self.create_project()
         self.update_project_config()
-        self.cleanup_svn_repo()
-        self.update_repository_in_forge()
+        #self.migrate_svn_to_git()
+        #self.cleanup_svn_repo()
+        #self.update_repository_in_forge()
         
             # cleanup
         self.cleanup_tmpdir()
@@ -191,11 +195,49 @@ class Typo3GerritHelper():
         if output:
             lines = output.splitlines()
             # what to do with the result output?
-      
+    
+    def migrate_svn_to_git(self):
+        # ssh review.typo3.org gerrit gsql --format=JSON -c \"select accounts.full_name, accounts.preferred_email from account_external_ids join accounts on accounts.account_id=account_external_ids.account_id where external_id=\'username:fab1en\' limit 1\"
+        push_url = self.robot_user + '@' + self.git_remote_url + ':' + self.git_path + '.git'
+        try:
+            push_branches = []
+            if not self.old_svn_path:
+                print '#'
+                print '# can\'t cleanup the svn as old_svn_path is not known.'
+                return
+            self.execute('git init', cwd=self.tmp_dir)
+            self.execute('git svn init -s --prefix=svn/ ' + self.old_svn_path, cwd=self.tmp_dir)
+            self.execute('git svn fetch', cwd=self.tmp_dir)
+            all_refs = self.execute('git show-ref', cwd=self.tmp_dir)
+            for ref in all_refs.splitlines():
+                [sha1, symbolic_name] = ref.split(' ')
+                regex = re.compile('(?P<svn>refs/remotes/svn/)(?P<name>[a-zA-Z0-9-_]+)',re.UNICODE)
+                matches=regex.search(symbolic_name)
+                if matches:
+                    branch = matches.group(2)
+                    push_branches.append(branch)
+                    self.execute('git update-ref refs/heads/' + branch + ' ' + sha1, cwd=self.tmp_dir)
+                regex = re.compile('(?P<svn>refs/remotes/svn/)(?:P<tags>tags/)(?P<name>[a-zA-Z0-9-_]+)',re.UNICODE)
+                matches=regex.search(symbolic_name)
+                if matches:
+                    tag = matches.group(3)
+                    self.execute('git tag ' + tag + ' ' + sha1, cwd=self.tmp_dir)
+            
+            for push_branch in push_branches:
+                self.confirm_execute('git push ' + push_url + ' '+ push_branch, cwd=self.tmp_dir)
+            self.confirm_execute('git push ' + push_url + ' --tags', cwd=self.tmp_dir)
+        except Exception:
+            self.old_svn_path = False
+            raise
+        # for now we set it to False to preven updating the rep in svn and forge
+        # we should do this unless we are sure migration was successfull
+        self.old_svn_path = False
+    
+    
     def cleanup_svn_repo(self):
         if not self.old_svn_path:
             print '#'
-            print '# can\'t cleanup the svn as old_svn_path is not known. probabld update_set_repository in forge has not been run?'
+            print '# can\'t cleanup svn as no old_svn_path could be found. This happens for example if the rep in forge already points to git'
             return
         new_git_url = 'http://git.typo3.org/' + self.git_path + '.git'
         svn_info = self.execute('svn info ' + self.old_svn_path)
@@ -245,7 +287,11 @@ class Typo3GerritHelper():
         if call_only == True:
             check_call(args=args, cwd=cwd)
         else:
-            output = check_output(args=args, cwd=cwd, stderr=STDOUT)
+            try:
+                output = check_output(args=args, cwd=cwd, stderr=STDOUT)
+            except CalledProcessError as cperr:
+                #print cperr.output
+                raise Exception('"{0}" failed with: "{1}"'.format(cmd,cperr.output))
         if output and self.debug == 'True':
             for line in output.splitlines():
                 print line
