@@ -81,7 +81,7 @@ class Typo3GerritHelper():
         print self.git_path       
         
         self.tmp_dir = tempfile.mkdtemp(prefix='t3git-')
-           
+
         self.get_check_forge_identifier()
         self.get_repository_in_forge()
         
@@ -211,13 +211,13 @@ class Typo3GerritHelper():
             all_refs = self.execute('git show-ref', cwd=self.tmp_dir)
             for ref in all_refs.splitlines():
                 [sha1, symbolic_name] = ref.split(' ')
-                regex = re.compile('(?P<svn>refs/remotes/svn/)(?P<name>[a-zA-Z0-9-_]+)',re.UNICODE)
+                regex = re.compile('(?P<svn>refs/remotes/svn/)(?P<name>[a-zA-Z0-9-_]+)$',re.UNICODE)
                 matches=regex.search(symbolic_name)
                 if matches:
                     branch = matches.group(2)
                     push_branches.append(branch)
                     self.execute('git update-ref refs/heads/' + branch + ' ' + sha1, cwd=self.tmp_dir)
-                regex = re.compile('(?P<svn>refs/remotes/svn/)(?:P<tags>tags/)(?P<name>[a-zA-Z0-9-_]+)',re.UNICODE)
+                regex = re.compile('(?P<svn>refs/remotes/svn/)(?P<tags>tags/)(?P<name>[a-zA-Z0-9-_.]+)',re.UNICODE)
                 matches=regex.search(symbolic_name)
                 if matches:
                     tag = matches.group(3)
@@ -346,7 +346,7 @@ class Typo3GerritHelper():
         groups_file.writelines(group_lines)
         groups_file.close()
         self.execute('git add project.config groups', cwd=self.tmp_dir)
-        diff = self.execute('git diff meta/config origin/meta/config', cwd=self.tmp_dir)
+        diff = self.execute('git diff --cached origin/meta/config', cwd=self.tmp_dir)
         if diff == '':
             print '# permissions dont need an update'
         else:
