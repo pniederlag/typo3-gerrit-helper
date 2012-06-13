@@ -94,7 +94,7 @@ class Typo3GerritHelper():
         #self.update_repository_in_forge()
         
             # cleanup
-        self.cleanup_tmpdir()
+        #self.cleanup_tmpdir()
     
     def cleanup_tmpdir(self):
         default = "YES"
