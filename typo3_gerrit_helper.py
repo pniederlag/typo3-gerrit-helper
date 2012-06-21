@@ -8,7 +8,7 @@ import argparse
 import shlex
 import json
 import shutil
-import sys
+import glob
 from subprocess import check_call, check_output, CalledProcessError, STDOUT
 import tempfile
 import re
@@ -79,8 +79,22 @@ class Typo3GerritHelper():
         else:
             self.git_path = git_path
         print self.git_path       
-        
-        self.tmp_dir = tempfile.mkdtemp(prefix='t3git-')
+
+        temp_dir = None
+        for test_temp_dir in glob.glob('/tmp/t3git-*'):
+            try:
+                test_config_file = open(test_temp_dir + '/.git/config')
+                regex = re.compile(git_path,re.UNICODE)
+                matches=regex.search(test_config_file.read())
+                if matches:
+                    temp_dir = test_temp_dir
+                    print 'temp_dir ' + temp_dir + ' will be reused'
+            except:
+                pass
+        if not temp_dir:
+            self.tmp_dir = tempfile.mkdtemp(prefix='t3git-')
+        else:
+            self.tmp_dir = temp_dir
 
         self.get_check_forge_identifier()
         self.get_repository_in_forge()
