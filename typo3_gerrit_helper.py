@@ -225,17 +225,17 @@ class Typo3GerritHelper():
             all_refs = self.execute('git show-ref', cwd=self.tmp_dir)
             for ref in all_refs.splitlines():
                 [sha1, symbolic_name] = ref.split(' ')
-                regex = re.compile('(?P<svn>refs/remotes/svn/)(?P<name>[a-zA-Z0-9-_]+)$',re.UNICODE)
+                regex = re.compile('(?P<svn>refs/remotes/svn/)(?P<name>[^\/]+)$',re.UNICODE)
                 matches=regex.search(symbolic_name)
                 if matches:
-                    branch = matches.group(2)
+                    branch = matches.group(2).replace('trunk', 'master');
                     push_branches.append(branch)
                     self.execute('git update-ref refs/heads/' + branch + ' ' + sha1, cwd=self.tmp_dir)
                 regex = re.compile('(?P<svn>refs/remotes/svn/)(?P<tags>tags/)(?P<name>[a-zA-Z0-9-_.]+)',re.UNICODE)
                 matches=regex.search(symbolic_name)
                 if matches:
                     tag = matches.group(3)
-                    self.execute('git tag ' + tag + ' ' + sha1, cwd=self.tmp_dir)
+                    self.execute('git tag -f ' + tag + ' ' + sha1, cwd=self.tmp_dir)
             
             for push_branch in push_branches:
                 self.confirm_execute('git push ' + push_url + ' '+ push_branch, cwd=self.tmp_dir)
