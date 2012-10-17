@@ -35,6 +35,7 @@ class Typo3GerritHelper():
         * add svn2git conversion
         * map the forge_identifier into the git path
         * review API/Language Implementation
+        * ask whether to enable review workflow
         
     '''
     
@@ -42,16 +43,22 @@ class Typo3GerritHelper():
         '''
         Constructor
         '''
-        self.git_remote_url = 'review.typo3.org'
+        self.git_remote_url = 'dev.review.typo3.org'
         #self.git_remote_url = 'ssh:\/\/jugglepro@review.local:29418'
-        review_host = 'review.typo3.org'
-        #review_host = '-p 29418 jugglepro@review.local'
-        self.ssh_cmd = 'ssh ' + review_host
     
+        review_host = 'dev.review.typo3.org'
+        server_host = 'srv133.typo3.org'
+        
+        self.ssh_cmd =        'ssh ' + server_host
+        self.gerrit_ssh_cmd = 'ssh ' + review_host + ' -p 29418'
+        
+        self.git_repo_path = '/var/git/repositories'
+        
             #self.forge_db_id will be set in get_check_forge_id
         self.forge_db_id = False
             #self.old_svn_path will be set somewhere below
         self.old_svn_path = False
+        self.forge_repo_path = '/var/git/repositories'
         
         parser = SafeConfigParser()
             # .secret
@@ -60,7 +67,9 @@ class Typo3GerritHelper():
         self.forge_user = parser.get('forge', 'user')
         self.forge_pw = parser.get('forge', 'pw')
         self.robot_user = parser.get('gerrit', 'robot_user')
-        
+
+	self.create_project_command = 'create-project --require-change-id --submit-type CHERRY_PICK --empty-commit'
+
             # config
         parser.read('config.cfg')
         self.interactive = parser.getboolean('config', 'interactive')
@@ -100,7 +109,7 @@ class Typo3GerritHelper():
         self.get_repository_in_forge()
         
             # start real work
-        self.create_group()
+        self.create_groups()
         self.create_project()
         self.update_project_config()
         #self.migrate_svn_to_git()
@@ -108,7 +117,7 @@ class Typo3GerritHelper():
         #self.update_repository_in_forge()
         
             # cleanup
-        #self.cleanup_tmpdir()
+        self.cleanup_tmpdir()
     
     def cleanup_tmpdir(self):
         default = "YES"
@@ -121,22 +130,32 @@ class Typo3GerritHelper():
             else:
                 print '# need to cleanup "{0}" yourself'.format(self.tmp_dir)        
         
-    def create_group(self):
+    def create_groups(self):
         '''
         adding a proper group for the project into gerrit including adding the proper forge_project_id
-        '''
-        output = self.execute(self.ssh_cmd + ' gerrit gsql --format JSON -c \\\"select * from account_group_names where name=\\\'' + self.git_path + '\\\'\\\"')
-        lines = output.splitlines()
-        sql_stat = json.loads(lines[-1]) # last line has stats
-        count = sql_stat['rowCount']
+        '''        
+        group_leaders = self.git_path + '-Leaders'
+        self.create_group(group_leaders, 'Administrators')
+        
+        group_members = self.git_path + '-Members'
+        self.create_group(group_members, group_leaders)
+        
+    def create_group(self, group_name, owner):
+        # figure out, if there is already a group called like site.git_path
+        output = self.gerrit_ssh('ls-groups')
+        regex = re.compile('^' + group_name + '$',re.UNICODE)
+        projects = regex.findall(output)
+        count = len(projects)
+
         if count == 0:
-            print '# will create Group "' + self.git_path + '" in gerrit'
-            self.execute(self.ssh_cmd + ' gerrit create-group --owner Administrators ' + self.git_path)
+            print '# will create Group "' + group_name + '" in gerrit'
+            self.gerrit_ssh('create-group --owner Administrators ' + group_name)
         elif count == 1:
-            print '# Group "' + self.git_path + '" is already known to gerrit'
+            print '# Group "' + group_name + '" is already known to gerrit'
         else:
-            raise Exception('# querying gerrit for the group "' + self.git_path + '" failed for an unknown reason')
-        self.execute(self.ssh_cmd + ' gerrit gsql -c \\\"update account_group_names set forge_project_id=\\\'' +  self.forge_identifier + '\\\' where name=\\\'' + self.git_path + '\\\' limit 1\\\"')
+            raise Exception('# querying gerrit for the group "' + group_name + '" failed for an unknown reason')
+        self.gerrit_ssh('gsql -c \\\"update account_group_names set forge_project_id=\\\'' +  self.forge_identifier + '\\\' where name=\\\'' + group_name + '\\\' limit 1\\\"')
+    
     
     def get_check_forge_identifier(self):
         '''
@@ -196,7 +215,7 @@ class Typo3GerritHelper():
             print '# can\'t update the repository in forge as it is unknown. probably get_repository in forge has not been run?'
             return
         
-        query = 'update repositories set url=\'/var/git/repositories/' + self.git_path + '.git\' , root_url=\'/var/git/repositories/' + self.git_path + '.git\', type=\'Git\' where id=' +  self.forge_rep_id + ''
+        query = 'update repositories set url=\'' + self.forge_repo_path + '/' + self.git_path + '.git\' , root_url=\'' + self.forge_repo_path + '/' + self.git_path + '.git\', type=\'Git\' where id=' +  self.forge_rep_id + ''
         output = self.confirm_execute(
                     'mysql' +
                     ' -u ' + self.forge_user +
@@ -281,18 +300,32 @@ class Typo3GerritHelper():
         readme_file.close()
           
     
+    def uuid_for_group(self, group_name):
+        # find out the uuid of group_name
+        output = self.gerrit_ssh('ls-groups -v')
+        # output is a tab-separated list of "<group-name>	<uuid>	<whatever>" lines
+        # search in that text for the line matching group_name in the first column and return the uuid in the second column
+        for line in output.splitlines():
+            linedata = line.split("\t")
+            if linedata[0] == group_name:
+                return linedata[1]
+    
     def create_project(self):
-        output = self.execute(self.ssh_cmd + ' gerrit ls-projects')
+        output = self.gerrit_ssh('ls-projects')
         lines = output.splitlines()
         try:
             found = lines.index(self.git_path)
             print '# project has already been created'
         except (ValueError, LookupError):
             print '# will create project now'
-            self.execute(self.ssh_cmd + ' gerrit create-project --require-change-id ' + self.git_path)
+            self.gerrit_ssh(self.create_project_command + '/' + self.git_path)
         #  touch the git-daemon-export-ok file to allow git browsing
-        cmd = 'ssh -t srv104 sudo touch "/var/git/repositories/' + self.git_path + '.git/git-daemon-export-ok"'
+        cmd = self.ssh_cmd + ' -t sudo touch "' + self.git_repo_path + '/' + self.git_path + '.git/git-daemon-export-ok"'
         self.execute(cmd, call_only=True)
+    
+    def gerrit_ssh(self, cmd):
+        return self.execute(self.gerrit_ssh_cmd + ' gerrit ' + cmd)
+    
     
     def execute(self, cmd, cwd=None, call_only=False):
         output = None
@@ -335,26 +368,28 @@ class Typo3GerritHelper():
     
     def update_project_config(self):
 
-        output=self.execute(self.ssh_cmd + ' gerrit gsql --format JSON -c \\\"select name,group_uuid from account_groups where name=\\\'' +  self.git_path + '\\\'\\\"')
-        lines = output.splitlines()
-        sql_result=json.loads(lines[0])
-        group_uid=sql_result['columns']['group_uuid']
+        group_leaders_name = self.git_path + '-Leaders'
+        group_members_name = self.git_path + '-Members'
+        group_leaders_uuid = self.uuid_for_group(group_leaders_name)      
+        group_members_uuid = self.uuid_for_group(group_members_name)
         
         # FIXME, unfortunatly git remotes with ssh/config use ':' as first separator, while andthing else needs '/' 
         #origin = self.git_remote_url + '/' + self.git_path + '.git'
         origin = self.git_remote_url + ':' + self.git_path + '.git'
+        
         self.execute('git init', cwd=self.tmp_dir)
         self.execute('git remote add origin ' + origin, cwd=self.tmp_dir)
         self.execute('git fetch origin refs/meta/config:refs/remotes/origin/meta/config', cwd=self.tmp_dir)
         self.execute('git checkout meta/config', cwd=self.tmp_dir)
-        self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/heads/*.label-Code-Review" "-2..+2 group ' + self.git_path + '"', cwd=self.tmp_dir)
-        self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/heads/*.label-Verified" "-1..+2 group ' + self.git_path + '"', cwd=self.tmp_dir)
-        self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/heads/*.submit" "group ' + self.git_path + '"', cwd=self.tmp_dir)
-        self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/tags/*.pushTag" "group ' + self.git_path + '"', cwd=self.tmp_dir)
+        self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/heads/*.label-Code-Review" "-2..+2 group ' + group_members_name + '"', cwd=self.tmp_dir)
+        self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/heads/*.label-Verified" "-1..+2 group ' + group_members_name + '"', cwd=self.tmp_dir)
+        self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/heads/*.submit" "group ' + group_members_name + '"', cwd=self.tmp_dir)
+        self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/tags/*.pushTag" "group ' + group_members_name + '"', cwd=self.tmp_dir)
         group_lines=[
              '# UUID                                  \tGroup Name\n',
              '#\n',
-             group_uid + '\t' + self.git_path + '\n',
+             group_leaders_uuid + '\t' + group_leaders_name + '\n',
+             group_members_uuid + '\t' + group_members_name + '\n',
              ]
         groups_file = open(self.tmp_dir + '/groups', "w")
         groups_file.writelines(group_lines)
@@ -362,7 +397,7 @@ class Typo3GerritHelper():
         self.execute('git add project.config groups', cwd=self.tmp_dir)
         diff = self.execute('git diff --cached origin/meta/config', cwd=self.tmp_dir)
         if diff == '':
-            print '# permissions dont need an update'
+            print '# permissions need NO update'
         else:
             print '# updating permissions to default'
             self.execute('git commit -m "Default Permissions"', cwd=self.tmp_dir)
