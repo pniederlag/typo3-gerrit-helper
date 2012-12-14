@@ -43,10 +43,10 @@ class Typo3GerritHelper():
         '''
         Constructor
         '''
-        self.git_remote_url = 'dev.review.typo3.org'
+        self.git_remote_url = 'review.typo3.org'
         #self.git_remote_url = 'ssh:\/\/jugglepro@review.local:29418'
     
-        review_host = 'dev.review.typo3.org'
+        review_host = 'review.typo3.org'
         server_host = 'srv133.typo3.org'
         
         self.ssh_cmd =        'ssh ' + server_host
@@ -318,7 +318,7 @@ class Typo3GerritHelper():
             print '# project has already been created'
         except (ValueError, LookupError):
             print '# will create project now'
-            self.gerrit_ssh(self.create_project_command + '/' + self.git_path)
+            self.gerrit_ssh(self.create_project_command + ' ' + self.git_path)
         #  touch the git-daemon-export-ok file to allow git browsing
         cmd = self.ssh_cmd + ' -t sudo touch "' + self.git_repo_path + '/' + self.git_path + '.git/git-daemon-export-ok"'
         self.execute(cmd, call_only=True)
@@ -381,10 +381,43 @@ class Typo3GerritHelper():
         self.execute('git remote add origin ' + origin, cwd=self.tmp_dir)
         self.execute('git fetch origin refs/meta/config:refs/remotes/origin/meta/config', cwd=self.tmp_dir)
         self.execute('git checkout meta/config', cwd=self.tmp_dir)
-        self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/heads/*.label-Code-Review" "-2..+2 group ' + group_members_name + '"', cwd=self.tmp_dir)
-        self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/heads/*.label-Verified" "-1..+2 group ' + group_members_name + '"', cwd=self.tmp_dir)
-        self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/heads/*.submit" "group ' + group_members_name + '"', cwd=self.tmp_dir)
-        self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/tags/*.pushTag" "group ' + group_members_name + '"', cwd=self.tmp_dir)
+
+
+	###############################
+	# Leaders + Members
+	###############################
+
+        self.execute('git config --file ' + self.tmp_dir + '/project.config       "access.refs/heads/*.label-Code-Review" "-2..+2 group ' + group_leaders_name + '"', cwd=self.tmp_dir)
+        self.execute('git config --file ' + self.tmp_dir + '/project.config --add "access.refs/heads/*.label-Code-Review" "-2..+2 group ' + group_members_name + '"', cwd=self.tmp_dir)
+
+        self.execute('git config --file ' + self.tmp_dir + '/project.config       "access.refs/heads/*.label-Verified" "-1..+2 group ' + group_leaders_name + '"', cwd=self.tmp_dir)
+        self.execute('git config --file ' + self.tmp_dir + '/project.config --add "access.refs/heads/*.label-Verified" "-1..+2 group ' + group_members_name + '"', cwd=self.tmp_dir)
+
+        self.execute('git config --file ' + self.tmp_dir + '/project.config       "access.refs/heads/*.submit" "group ' + group_leaders_name + '"', cwd=self.tmp_dir)
+        self.execute('git config --file ' + self.tmp_dir + '/project.config --add "access.refs/heads/*.submit" "group ' + group_members_name + '"', cwd=self.tmp_dir)
+
+        self.execute('git config --file ' + self.tmp_dir + '/project.config       "access.refs/for/refs/heads/*.pushMerge" "group ' + group_leaders_name + '"', cwd=self.tmp_dir)
+        self.execute('git config --file ' + self.tmp_dir + '/project.config --add "access.refs/for/refs/heads/*.pushMerge" "group ' + group_members_name + '"', cwd=self.tmp_dir)
+
+	###############################
+	# Leaders only
+	###############################
+
+	# annotated tags
+        self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/tags/*.pushTag" "group ' + group_leaders_name + '"', cwd=self.tmp_dir)
+
+	# lightweight tags
+        self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/tags/*.create" "group ' + group_leaders_name + '"', cwd=self.tmp_dir)
+
+	# owner privileges
+        self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/heads/*.owner" "group ' + group_leaders_name + '"', cwd=self.tmp_dir)
+
+	# create branches
+        self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/heads/*.create" "group ' + group_leaders_name + '"', cwd=self.tmp_dir)
+
+	# forge committer identity
+        self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/for/refs/heads/*.forgeCommitter" "group ' + group_leaders_name + '"', cwd=self.tmp_dir)
+
         group_lines=[
              '# UUID                                  \tGroup Name\n',
              '#\n',
