@@ -143,7 +143,7 @@ class Typo3GerritHelper():
     def create_group(self, group_name, owner):
         # figure out, if there is already a group called like site.git_path
         output = self.gerrit_ssh('ls-groups')
-        regex = re.compile('^' + group_name + '$',re.UNICODE)
+        regex = re.compile("^" + group_name + "$",re.MULTILINE|re.UNICODE)
         projects = regex.findall(output)
         count = len(projects)
 
