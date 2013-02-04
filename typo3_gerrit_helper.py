@@ -257,7 +257,7 @@ class Typo3GerritHelper():
                     self.execute('git tag -f ' + tag + ' ' + sha1, cwd=self.tmp_dir)
             
             for push_branch in push_branches:
-                self.confirm_execute('git push ' + push_url + ' '+ push_branch, cwd=self.tmp_dir)
+                self.confirm_execute('git push ' + push_url + ' refs/heads/'+ push_branch, cwd=self.tmp_dir)
             self.confirm_execute('git push ' + push_url + ' --tags', cwd=self.tmp_dir)
         except Exception:
             self.old_svn_path = False
