@@ -410,7 +410,7 @@ class Typo3GerritHelper():
         self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/tags/*.create" "group ' + group_leaders_name + '"', cwd=self.tmp_dir)
 
 	# owner privileges
-        self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/heads/*.owner" "group ' + group_leaders_name + '"', cwd=self.tmp_dir)
+        self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/*.owner" "group ' + group_leaders_name + '"', cwd=self.tmp_dir)
 
 	# create branches
         self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/heads/*.create" "group ' + group_leaders_name + '"', cwd=self.tmp_dir)
