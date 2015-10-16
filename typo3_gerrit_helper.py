@@ -9,6 +9,7 @@ import shlex
 import json
 import shutil
 import glob
+import os
 from subprocess import check_call, check_output, CalledProcessError, STDOUT
 import tempfile
 import re
@@ -66,6 +67,7 @@ class Typo3GerritHelper():
         self.forge_db = parser.get('forge', 'db')
         self.forge_user = parser.get('forge', 'user')
         self.forge_pw = parser.get('forge', 'pw')
+        os.environ["MYSQL_PWD"] = self.forge_pw
         self.robot_user = parser.get('gerrit', 'robot_user')
 
 	self.create_project_command = 'create-project --require-change-id --submit-type CHERRY_PICK --empty-commit'
@@ -164,7 +166,7 @@ class Typo3GerritHelper():
         '''
         try:
             query = 'select id from projects where identifier=\'' + self.forge_identifier + '\''
-            cmd =  'mysql -u ' + self.forge_user + ' -h 127.0.0.1 -P 3309 -p' + self.forge_pw + ' -e "' + query + '" ' + self.forge_db
+            cmd =  'mysql -u ' + self.forge_user + ' -h 127.0.0.1 -P 3309 ' + ' -e "' + query + '" ' + self.forge_db
             output = self.execute(cmd)
             lines = output.splitlines()
             self.forge_db_id = int(lines[1])
@@ -186,7 +188,6 @@ class Typo3GerritHelper():
                         ' -u ' + self.forge_user +
                         ' -h 127.0.0.1' +
                         ' -P 3309' +
-                        ' -p' + self.forge_pw +
                         ' -e "' + query + '"' +
                         ' ' + self.forge_db
                         )
@@ -221,7 +222,6 @@ class Typo3GerritHelper():
                     ' -u ' + self.forge_user +
                     ' -h 127.0.0.1' +
                     ' -P 3309' +
-                    ' -p' + self.forge_pw +
                     ' -e "' + query + '"' +
                     ' ' + self.forge_db
                     )
