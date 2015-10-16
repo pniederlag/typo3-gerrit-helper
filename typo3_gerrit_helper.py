@@ -48,7 +48,7 @@ class Typo3GerritHelper():
         #self.git_remote_url = 'ssh:\/\/jugglepro@review.local:29418'
     
         review_host = 'review.typo3.org'
-        server_host = 'srv133.typo3.org'
+        server_host = 'git.typo3.org'
         
         self.ssh_cmd =        'ssh ' + server_host
         self.gerrit_ssh_cmd = 'ssh ' + review_host + ' -p 29418'
