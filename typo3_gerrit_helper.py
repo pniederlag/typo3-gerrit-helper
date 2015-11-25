@@ -24,10 +24,12 @@ class Typo3GerritHelper():
 
     @requirements:
 
-        * gerrit account with group membership 'admin'
-        * ssh config  (user) for hosts: review.typo3.org, srv137.typo3.org
+        * gerrit account with group membership 'admin' and admin privileges (later refered to as "robotuser")
         * ssh tunel 3309:127.0.0.1:3306 onto srv137.typo3.org (mysql on forge)
-        * copy .secret.example.cfg to .secret.example.cfg and put in db settings for forge
+        * copy .secret.example.cfg to .secret.example.cfg and adjust settings
+        ** set db credentials for forge
+        ** robotuser on gerrit/review with admin privileges'
+        * [ssh config  (user) for hosts: review.typo3.org, srv137.typo3.org (obsoleted?)]
 
     @todo:
 
