@@ -24,8 +24,8 @@ class Typo3GerritHelper():
     @requirements:
     
         * gerrit account with group membership 'admin'
-        * ssh config  (user) for hosts: review.typo3.org, srv108.typo3.org
-        * ssh tunel 3309:127.0.0.1:3306 onto srv108.typo3.org (mysql)
+        * ssh config  (user) for hosts: review.typo3.org, srv137.typo3.org
+        * ssh tunel 3309:127.0.0.1:3306 onto srv137.typo3.org (mysql on forge)
         * copy .secret.example.cfg to .secret.example.cfg and put in db settings for forge
     
     @todo:
