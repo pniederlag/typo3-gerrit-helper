@@ -10,6 +10,7 @@ import json
 import shutil
 import glob
 import os
+import sys, traceback
 from subprocess import check_call, check_output, CalledProcessError, STDOUT
 import tempfile
 import re
@@ -475,9 +476,11 @@ if args.file:
             except Exception as ex:
                 print ''
                 print '############################################################################'
-                print '# ERROR: project "{0}" "{1}" could not processed'.format(forge_identifier, git_path)
+                print '# ERROR: project "{0}" "{1}" could not be processed'.format(forge_identifier, git_path)
                 print '#'
                 print '# {0}'.format(ex)
+                ex_type, ex, tb = sys.exc_info()
+                traceback.print_tb(tb)
                 print '############################################################################'
                 print ''
                 failed_projects.append(forge_identifier)
@@ -506,9 +509,11 @@ elif (args.forge_identifier != None and args.git_path != None):
     except Exception as ex:
         print ''
         print '############################################################################'
-        print '# ERROR: project "{0}" "{1}" could not processed'.format(forge_identifier, git_path)
+        print '# ERROR: project "{0}" "{1}" could not be processed'.format(forge_identifier, git_path)
         print '#'
         print '# {0}'.format(ex)
+        ex_type, ex, tb = sys.exc_info()
+        traceback.print_tb(tb)
         print '############################################################################'
         print ''
 else:
