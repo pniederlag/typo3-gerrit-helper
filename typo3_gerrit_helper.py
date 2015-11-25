@@ -51,9 +51,6 @@ class Typo3GerritHelper():
         review_host = 'review.typo3.org'
         server_host = 'git.typo3.org'
 
-        self.ssh_cmd =        'ssh ' + server_host
-        self.gerrit_ssh_cmd = 'ssh ' + review_host + ' -p 29418'
-
         self.git_repo_path = '/var/git/repositories'
 
             #self.forge_db_id will be set in get_check_forge_id
@@ -70,6 +67,9 @@ class Typo3GerritHelper():
         self.forge_pw = parser.get('forge', 'pw')
         os.environ["MYSQL_PWD"] = self.forge_pw
         self.robot_user = parser.get('gerrit', 'robot_user')
+
+        self.ssh_cmd =        'ssh ' + server_host
+        self.gerrit_ssh_cmd = 'ssh ' + self.robot_user + '@' + review_host + ' -p 29418'
 
 	self.create_project_command = 'create-project --require-change-id --submit-type CHERRY_PICK --empty-commit'
 
