@@ -378,10 +378,14 @@ class Typo3GerritHelper():
 
         # FIXME, unfortunatly git remotes with ssh/config use ':' as first separator, while andthing else needs '/'
         #origin = self.git_remote_url + '/' + self.git_path + '.git'
-        origin = self.git_remote_url + ':' + self.git_path + '.git'
+        origin = self.robot_user + '@' + self.git_remote_url + ':' + self.git_path + '.git'
 
         self.execute('git init', cwd=self.tmp_dir)
-        self.execute('git remote add origin ' + origin, cwd=self.tmp_dir)
+        # check for existance of remote "origin", create remote otherwise
+        try:
+            self.execute('git remote show origin ' + origin, cwd=self.tmp_dir)
+        except:
+            self.execute('git remote add origin ' + origin, cwd=self.tmp_dir)
         self.execute('git fetch origin refs/meta/config:refs/remotes/origin/meta/config', cwd=self.tmp_dir)
         self.execute('git checkout meta/config', cwd=self.tmp_dir)
 
