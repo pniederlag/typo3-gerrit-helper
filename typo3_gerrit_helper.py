@@ -20,16 +20,16 @@ class Typo3GerritHelper():
     '''
     some helper to create git repos and gerrit projects from forge projects
     pretty much tied to the infrastructure of the TYPO3 project
-    
+
     @requirements:
-    
+
         * gerrit account with group membership 'admin'
         * ssh config  (user) for hosts: review.typo3.org, srv137.typo3.org
         * ssh tunel 3309:127.0.0.1:3306 onto srv137.typo3.org (mysql on forge)
         * copy .secret.example.cfg to .secret.example.cfg and put in db settings for forge
-    
+
     @todo:
-    
+
         * make ssh and hosts configurable
         * manage the ssh tunnel
         * get secrets from forge server
@@ -37,30 +37,30 @@ class Typo3GerritHelper():
         * map the forge_identifier into the git path
         * review API/Language Implementation
         * ask whether to enable review workflow
-        
+
     '''
-    
+
     def __init__(self,args):
         '''
         Constructor
         '''
         self.git_remote_url = 'review.typo3.org'
         #self.git_remote_url = 'ssh:\/\/jugglepro@review.local:29418'
-    
+
         review_host = 'review.typo3.org'
         server_host = 'git.typo3.org'
-        
+
         self.ssh_cmd =        'ssh ' + server_host
         self.gerrit_ssh_cmd = 'ssh ' + review_host + ' -p 29418'
-        
+
         self.git_repo_path = '/var/git/repositories'
-        
+
             #self.forge_db_id will be set in get_check_forge_id
         self.forge_db_id = False
             #self.old_svn_path will be set somewhere below
         self.old_svn_path = False
         self.forge_repo_path = '/var/git/repositories'
-        
+
         parser = SafeConfigParser()
             # .secret
         parser.read('.secret.cfg')
@@ -77,11 +77,11 @@ class Typo3GerritHelper():
         self.interactive = parser.getboolean('config', 'interactive')
         if args.interactive_false:
             self.interactive = False
-        self.debug = parser.get('config', 'debug') 
+        self.debug = parser.get('config', 'debug')
 
     def run(self,forge_identifier,git_path):
         self.forge_identifier = forge_identifier
-        
+
             # strip '.git' from git_path in case it was set
         regex = re.compile('(.*)(\.git)',re.UNICODE)
         matches=regex.search(git_path)
@@ -89,7 +89,7 @@ class Typo3GerritHelper():
             self.git_path = matches.group(1)
         else:
             self.git_path = git_path
-        print self.git_path       
+        print self.git_path
 
         temp_dir = None
         for test_temp_dir in glob.glob('/tmp/t3git-*'):
@@ -109,7 +109,7 @@ class Typo3GerritHelper():
 
         self.get_check_forge_identifier()
         self.get_repository_in_forge()
-        
+
             # start real work
         self.create_groups()
         self.create_project()
@@ -117,31 +117,31 @@ class Typo3GerritHelper():
         #self.migrate_svn_to_git()
         #self.cleanup_svn_repo()
         #self.update_repository_in_forge()
-        
+
             # cleanup
         self.cleanup_tmpdir()
-    
+
     def cleanup_tmpdir(self):
         default = "YES"
         if self.interactive == False:
             shutil.rmtree(self.tmp_dir)
         else:
             user_input = raw_input('# Do you want to cleanup the temp directory "{0}"? [{1}|no]: '.format(self.tmp_dir,default))
-            if not user_input or user_input == default:   
+            if not user_input or user_input == default:
                 shutil.rmtree(self.tmp_dir)
             else:
-                print '# need to cleanup "{0}" yourself'.format(self.tmp_dir)        
-        
+                print '# need to cleanup "{0}" yourself'.format(self.tmp_dir)
+
     def create_groups(self):
         '''
         adding a proper group for the project into gerrit including adding the proper forge_project_id
-        '''        
+        '''
         group_leaders = self.git_path + '-Leaders'
         self.create_group(group_leaders, 'Administrators')
-        
+
         group_members = self.git_path + '-Members'
         self.create_group(group_members, group_leaders)
-        
+
     def create_group(self, group_name, owner):
         # figure out, if there is already a group called like site.git_path
         output = self.gerrit_ssh('ls-groups')
@@ -157,8 +157,8 @@ class Typo3GerritHelper():
         else:
             raise Exception('# querying gerrit for the group "' + group_name + '" failed for an unknown reason')
         self.gerrit_ssh('gsql -c \\\"update account_group_names set forge_project_id=\\\'' +  self.forge_identifier + '\\\' where name=\\\'' + group_name + '\\\' limit 1\\\"')
-    
-    
+
+
     def get_check_forge_identifier(self):
         '''
         try to find the id of the project in forge database by looking up the provided forge_identifier
@@ -177,7 +177,7 @@ class Typo3GerritHelper():
             msg += '# ssh -N -L 3309:127.0.0.1:3306 srv108\n'
             msg += '#'
             raise Exception(msg)
-    
+
     def get_repository_in_forge(self):
         old_svn_path = False
         rep_id = False
@@ -209,13 +209,13 @@ class Typo3GerritHelper():
         else:
             self.old_svn_path = old_svn_path + '/'
         self.forge_rep_id = rep_id
-    
+
     def update_repository_in_forge(self):
         if not self.forge_rep_id:
             print '#'
             print '# can\'t update the repository in forge as it is unknown. probably get_repository in forge has not been run?'
             return
-        
+
         query = 'update repositories set url=\'' + self.forge_repo_path + '/' + self.git_path + '.git\' , root_url=\'' + self.forge_repo_path + '/' + self.git_path + '.git\', type=\'Git\' where id=' +  self.forge_rep_id + ''
         output = self.confirm_execute(
                     'mysql' +
@@ -228,7 +228,7 @@ class Typo3GerritHelper():
         if output:
             lines = output.splitlines()
             # what to do with the result output?
-    
+
     def migrate_svn_to_git(self):
         # ssh review.typo3.org gerrit gsql --format=JSON -c \"select accounts.full_name, accounts.preferred_email from account_external_ids join accounts on accounts.account_id=account_external_ids.account_id where external_id=\'username:fab1en\' limit 1\"
         push_url = self.robot_user + '@' + self.git_remote_url + ':' + self.git_path + '.git'
@@ -255,7 +255,7 @@ class Typo3GerritHelper():
                 if matches:
                     tag = matches.group(3)
                     self.execute('git tag -f ' + tag + ' ' + sha1, cwd=self.tmp_dir)
-            
+
             for push_branch in push_branches:
                 self.confirm_execute('git push ' + push_url + ' refs/heads/'+ push_branch, cwd=self.tmp_dir)
             self.confirm_execute('git push ' + push_url + ' --tags', cwd=self.tmp_dir)
@@ -265,8 +265,8 @@ class Typo3GerritHelper():
         # for now we set it to False to preven updating the rep in svn and forge
         # we should do this unless we are sure migration was successfull
         self.old_svn_path = False
-    
-    
+
+
     def cleanup_svn_repo(self):
         if not self.old_svn_path:
             print '#'
@@ -280,26 +280,26 @@ class Typo3GerritHelper():
             rev_no = matches.group(2)
         else:
             raise Exception('can\'t find the latest svn revision for ' + self.old_svn_path)
-        
+
         commit_msg = 'Moved to git ' + new_git_url + ''
-        
+
         directories = self.execute('svn ls ' + self.old_svn_path)
         if directories:
             cmd = 'svn rm -m "' + commit_msg + '"'
             for obsolete_dir in directories.splitlines():
                 cmd = cmd + ' ' + self.old_svn_path + obsolete_dir
             self.confirm_execute(cmd)
-            
+
         readme_template = Template(open('README.removed.template', "r").read())
         readme_file = tempfile.NamedTemporaryFile(delete=True)
         readme_content = readme_template.substitute(new_git_url=new_git_url, svn_rev_no=rev_no, svn_old_path=self.old_svn_path)
         readme_file.writelines([readme_content])
         readme_file.seek(0) # rewind
         cmd = 'svn import -m "' + commit_msg + '" ' + readme_file.name + ' ' + self.old_svn_path + 'README'
-        self.confirm_execute(cmd)  
+        self.confirm_execute(cmd)
         readme_file.close()
-          
-    
+
+
     def uuid_for_group(self, group_name):
         # find out the uuid of group_name
         output = self.gerrit_ssh('ls-groups -v')
@@ -309,7 +309,7 @@ class Typo3GerritHelper():
             linedata = line.split("\t")
             if linedata[0] == group_name:
                 return linedata[1]
-    
+
     def create_project(self):
         output = self.gerrit_ssh('ls-projects')
         lines = output.splitlines()
@@ -322,11 +322,11 @@ class Typo3GerritHelper():
         #  touch the git-daemon-export-ok file to allow git browsing
         cmd = self.ssh_cmd + ' -t sudo touch "' + self.git_repo_path + '/' + self.git_path + '.git/git-daemon-export-ok"'
         self.execute(cmd, call_only=True)
-    
+
     def gerrit_ssh(self, cmd):
         return self.execute(self.gerrit_ssh_cmd + ' gerrit ' + cmd)
-    
-    
+
+
     def execute(self, cmd, cwd=None, call_only=False):
         output = None
         args = shlex.split(cmd)
@@ -344,7 +344,7 @@ class Typo3GerritHelper():
                 print line
             #print output
         return output
-            
+
     def confirm_execute(self,cmd, cwd=None, call_only=False):
         output = None
         if self.interactive == False:
@@ -363,20 +363,20 @@ class Typo3GerritHelper():
             else:
                 print '# INFO: skipping execution as requested!'
                 print '############################################################'
-        
+
         return output
-    
+
     def update_project_config(self):
 
         group_leaders_name = self.git_path + '-Leaders'
         group_members_name = self.git_path + '-Members'
-        group_leaders_uuid = self.uuid_for_group(group_leaders_name)      
+        group_leaders_uuid = self.uuid_for_group(group_leaders_name)
         group_members_uuid = self.uuid_for_group(group_members_name)
-        
-        # FIXME, unfortunatly git remotes with ssh/config use ':' as first separator, while andthing else needs '/' 
+
+        # FIXME, unfortunatly git remotes with ssh/config use ':' as first separator, while andthing else needs '/'
         #origin = self.git_remote_url + '/' + self.git_path + '.git'
         origin = self.git_remote_url + ':' + self.git_path + '.git'
-        
+
         self.execute('git init', cwd=self.tmp_dir)
         self.execute('git remote add origin ' + origin, cwd=self.tmp_dir)
         self.execute('git fetch origin refs/meta/config:refs/remotes/origin/meta/config', cwd=self.tmp_dir)
@@ -435,7 +435,7 @@ class Typo3GerritHelper():
             print '# updating permissions to default'
             self.execute('git commit -m "Default Permissions"', cwd=self.tmp_dir)
             self.confirm_execute('git push origin meta/config:refs/meta/config', cwd=self.tmp_dir)
- 
+
 
 
 parser = argparse.ArgumentParser(
@@ -454,7 +454,7 @@ parser.add_argument('-f','--file', type=open,
                    help='file name with lines of fields forge_id and git_path, fields must be separated by <tab>')
 parser.add_argument('-y','--interactive-false',
                    action='store_true',
-                   help='unset interactive mode, overrides value from config.cfg')              
+                   help='unset interactive mode, overrides value from config.cfg')
 
 args = parser.parse_args()
 
@@ -501,7 +501,7 @@ elif (args.forge_identifier != None and args.git_path != None):
         git_path = args.git_path
         print '##############################################'
         print '# start processing "{0}" "{1}"'.format(forge_identifier, git_path)
-        print '##############################################'    
+        print '##############################################'
         gerrit_helper.run(forge_identifier, git_path)
     except Exception as ex:
         print ''
@@ -518,4 +518,3 @@ else:
     print '############################################################################'
     print ''
     parser.print_help()
-
