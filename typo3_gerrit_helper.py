@@ -441,7 +441,7 @@ class Typo3GerritHelper():
 parser = argparse.ArgumentParser(
                                  description='''TYPO3 helper to create gerrit projects based on forge projects
 
-    Example:  %(prog)s extension_foo TYPO3v4/Extensions/foo
+    Example:  %(prog)s extension-foo_bar TYPO3CMS/Extensions/foo
 ''',
                             formatter_class=argparse.RawDescriptionHelpFormatter
                             )
