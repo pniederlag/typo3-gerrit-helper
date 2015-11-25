@@ -388,22 +388,22 @@ class Typo3GerritHelper():
             self.execute('git remote add origin ' + origin, cwd=self.tmp_dir)
         self.execute('git fetch origin refs/meta/config:refs/remotes/origin/meta/config', cwd=self.tmp_dir)
         self.execute('git checkout meta/config', cwd=self.tmp_dir)
-
+        #self.execute('git reset --hard origin/meta/config', cwd=self.tmp_dir)
 
 	###############################
 	# Leaders + Members
 	###############################
 
-        self.execute('git config --file ' + self.tmp_dir + '/project.config       "access.refs/heads/*.label-Code-Review" "-2..+2 group ' + group_leaders_name + '"', cwd=self.tmp_dir)
+        self.execute('git config --file ' + self.tmp_dir + '/project.config --replace-all "access.refs/heads/*.label-Code-Review" "-2..+2 group ' + group_leaders_name + '"', cwd=self.tmp_dir)
         self.execute('git config --file ' + self.tmp_dir + '/project.config --add "access.refs/heads/*.label-Code-Review" "-2..+2 group ' + group_members_name + '"', cwd=self.tmp_dir)
 
-        self.execute('git config --file ' + self.tmp_dir + '/project.config       "access.refs/heads/*.label-Verified" "-1..+2 group ' + group_leaders_name + '"', cwd=self.tmp_dir)
+        self.execute('git config --file ' + self.tmp_dir + '/project.config --replace-all "access.refs/heads/*.label-Verified" "-1..+2 group ' + group_leaders_name + '"', cwd=self.tmp_dir)
         self.execute('git config --file ' + self.tmp_dir + '/project.config --add "access.refs/heads/*.label-Verified" "-1..+2 group ' + group_members_name + '"', cwd=self.tmp_dir)
 
-        self.execute('git config --file ' + self.tmp_dir + '/project.config       "access.refs/heads/*.submit" "group ' + group_leaders_name + '"', cwd=self.tmp_dir)
+        self.execute('git config --file ' + self.tmp_dir + '/project.config --replace-all "access.refs/heads/*.submit" "group ' + group_leaders_name + '"', cwd=self.tmp_dir)
         self.execute('git config --file ' + self.tmp_dir + '/project.config --add "access.refs/heads/*.submit" "group ' + group_members_name + '"', cwd=self.tmp_dir)
 
-        self.execute('git config --file ' + self.tmp_dir + '/project.config       "access.refs/for/refs/heads/*.pushMerge" "group ' + group_leaders_name + '"', cwd=self.tmp_dir)
+        self.execute('git config --file ' + self.tmp_dir + '/project.config --replace-all "access.refs/for/refs/heads/*.pushMerge" "group ' + group_leaders_name + '"', cwd=self.tmp_dir)
         self.execute('git config --file ' + self.tmp_dir + '/project.config --add "access.refs/for/refs/heads/*.pushMerge" "group ' + group_members_name + '"', cwd=self.tmp_dir)
 
 	###############################
@@ -411,19 +411,19 @@ class Typo3GerritHelper():
 	###############################
 
 	# annotated tags
-        self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/tags/*.pushTag" "group ' + group_leaders_name + '"', cwd=self.tmp_dir)
+        self.execute('git config --file ' + self.tmp_dir + '/project.config --replace-all "access.refs/tags/*.pushTag" "group ' + group_leaders_name + '"', cwd=self.tmp_dir)
 
 	# lightweight tags
-        self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/tags/*.create" "group ' + group_leaders_name + '"', cwd=self.tmp_dir)
+        self.execute('git config --file ' + self.tmp_dir + '/project.config --replace-all "access.refs/tags/*.create" "group ' + group_leaders_name + '"', cwd=self.tmp_dir)
 
 	# owner privileges
-        self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/*.owner" "group ' + group_leaders_name + '"', cwd=self.tmp_dir)
+        self.execute('git config --file ' + self.tmp_dir + '/project.config --replace-all "access.refs/*.owner" "group ' + group_leaders_name + '"', cwd=self.tmp_dir)
 
 	# create branches
-        self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/heads/*.create" "group ' + group_leaders_name + '"', cwd=self.tmp_dir)
+        self.execute('git config --file ' + self.tmp_dir + '/project.config --replace-all "access.refs/heads/*.create" "group ' + group_leaders_name + '"', cwd=self.tmp_dir)
 
 	# forge committer identity
-        self.execute('git config --file ' + self.tmp_dir + '/project.config "access.refs/for/refs/heads/*.forgeCommitter" "group ' + group_leaders_name + '"', cwd=self.tmp_dir)
+        self.execute('git config --file ' + self.tmp_dir + '/project.config --replace-all "access.refs/for/refs/heads/*.forgeCommitter" "group ' + group_leaders_name + '"', cwd=self.tmp_dir)
 
         group_lines=[
              '# UUID                                  \tGroup Name\n',
