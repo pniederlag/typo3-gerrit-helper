@@ -69,6 +69,7 @@ class Typo3GerritHelper():
         self.forge_pw = parser.get('forge', 'pw')
         os.environ["MYSQL_PWD"] = self.forge_pw
         self.robot_user = parser.get('gerrit', 'robot_user')
+        self.git_committer_email = parser.get('gerrit', 'git_committer_email')
 
         self.ssh_cmd =        'ssh ' + server_host
         self.gerrit_ssh_cmd = 'ssh ' + self.robot_user + '@' + review_host + ' -p 29418'
@@ -381,6 +382,8 @@ class Typo3GerritHelper():
         origin = self.robot_user + '@' + self.git_remote_url + ':' + self.git_path + '.git'
 
         self.execute('git init', cwd=self.tmp_dir)
+        self.execute('git config user.name ' + '"TYPO3 Admins"', cwd=self.tmp_dir)
+        self.execute('git config user.email ' + self.git_committer_email, cwd=self.tmp_dir)
         # check for existance of remote "origin", create remote otherwise
         try:
             self.execute('git remote show origin ' + origin, cwd=self.tmp_dir)
